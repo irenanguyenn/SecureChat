@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureChat</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300..700;1,300..700&family=Pacifico&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h1 class="company">SecureChat</h1>
+            <div class="user-profile">
+                <div class="user-avatar"></div>
+                <span class="user-name">User 1</span>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <div class="chat-messages" id="chat-messages"></div>
+        
+            <!-- Chat Input -->
+            <div class="chat-input">
+                <button class="attach-btn"><i class='bx bx-folder'></i></button>
+                <input type="text" id="message-input" placeholder="Message">
+                <button class="emoji-btn"><i class='bx bx-smile'></i></button>
+                <button class="send-btn" onclick="sendMessage()"><i class='bx bx-send'></i></button>
+            </div>
+        </div>        
+    </div>
+    <script src="/js/auth.js"></script>
+    <script src="/js/script.js" defer></script>
+</body>
+</html>
