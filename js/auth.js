@@ -1,30 +1,5 @@
-const websocket = new WebSocket('wss://192.168.12.244:8765');
+let websocket;
 
-websocket.onopen = () => {
-    console.log('Connected to the authentication server');
-};
-
-websocket.onmessage = (event) => {
-    const response = event.data;
-    console.log("Server response:", response);
-
-    if (response === "Authentication successful!") {
-        alert("Login successful! Redirecting...");
-        localStorage.setItem("loggedInUser", document.getElementById('login-username').value);
-        setTimeout(() => {
-            window.location.href = "gc.html"; // Redirect to chat interface
-        }, 1000);
-    } else if (response === "Registration successful! Please log in.") {
-        alert("Registration successful! You can now log in.");
-        showLogin();
-    } else {
-        alert(response);
-    }
-};
-
-websocket.onclose = () => {
-    console.log('Disconnected from the server');
-};
 // Function to switch to the login form
 function showLogin() {
     document.querySelector('.login-container').classList.remove('hidden');
@@ -64,10 +39,10 @@ async function authenticate(action) {
             alert("Registration successful! You can now log in.");
             showLogin();
         } else {
-            localStorage.setItem("authToken", result.token); // Store JWT token
+            localStorage.setItem("authToken", result.token);
             alert("Login successful! Redirecting...");
             setTimeout(() => {
-                window.location.href = "gc.html"; // Redirect to chat
+                window.location.href = "gc.html"; 
             }, 1000);
         }
     } else {
@@ -84,7 +59,7 @@ function connectWebSocket() {
         return;
     }
 
-    const websocket = new WebSocket(`wss://yourserver.com:8765/?token=${token}`);
+    websocket = new WebSocket(`wss://192.168.12.244:8765/?token=${token}`);
 
     websocket.onopen = () => {
         console.log("Connected securely to WebSocket server");
@@ -99,9 +74,38 @@ function connectWebSocket() {
     };
 }
 
+// Initial WebSocket connection for authentication
+websocket = new WebSocket('wss://192.168.12.244:8765');
+
+websocket.onopen = () => {
+    console.log('Connected to the authentication server');
+};
+
+websocket.onmessage = (event) => {
+    const response = event.data;
+    console.log("Server response:", response);
+
+    if (response === "Authentication successful!") {
+        alert("Login successful! Redirecting...");
+        localStorage.setItem("loggedInUser", document.getElementById('login-username').value);
+        setTimeout(() => {
+            window.location.href = "gc.html"; 
+        }, 1000);
+    } else if (response === "Registration successful! Please log in.") {
+        alert("Registration successful! You can now log in.");
+        showLogin();
+    } else {
+        alert(response);
+    }
+};
+
+websocket.onclose = () => {
+    console.log('Disconnected from the server');
+};
+
 // Ensure authentication works on page load
 document.addEventListener("DOMContentLoaded", () => {
     if (window.location.pathname.includes("gc.html")) {
-        connectWebSocket(); // Auto-connect WebSocket if on chat page
+        connectWebSocket(); 
     }
 });
