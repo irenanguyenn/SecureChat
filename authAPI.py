@@ -1,19 +1,22 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS  # Import CORS
 import mysql.connector
 import jwt
 import bcrypt
 import datetime
 
 app = Flask(__name__)
+CORS(app) 
 SECRET_KEY = "your_secret_key"
 
-# Function to Connect to MySQL
+# Connect to Local MySQL Database
 def get_db_connection():
     return mysql.connector.connect(
-        host="localhost",         # If running MySQL locally
-        user="root",              # Change to your MySQL username
-        password="password", # Change to your MySQL password
-        database="securechat"     # Ensure this database exists
+        host="localhost",
+        user="root",
+        password="FairyTail1234!!",
+        database="securechat",
+        port = 3306
     )
 
 def hash_password(password):
