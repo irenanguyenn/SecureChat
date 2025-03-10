@@ -1,3 +1,4 @@
+# filepath: c:\Users\lilyt\OneDrive\Desktop\SecureChatBeta-main\serv.py
 import asyncio
 import websockets
 import ssl
@@ -7,24 +8,22 @@ import time
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler
 import socketserver
-
-DB_FILE = "db.txt"
+from firebase_admin import db
+from firebase_admin_init import firebase_admin
 
 def load_users():
-    """Load user credentials from db.txt"""
-    users = {}
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r") as f:
-            for line in f:
-                username, hashed_password = line.strip().split(":")
-                users[username] = hashed_password.encode()
-    return users
+    """Load user credentials from Firebase"""
+    users_ref = db.reference('users')
+    users = users_ref.get()
+    return {username: user['password'].encode() for username, user in users.items()} if users else {}
 
 def save_user(username, password):
-    """Save a new user to db.txt"""
+    """Save a new user to Firebase"""
     hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=4))
-    with open(DB_FILE, "a") as f:
-        f.write(f"{username}:{hashed_password.decode()}\n")
+    users_ref = db.reference('users')
+    users_ref.child(username).set({
+        'password': hashed_password.decode()
+    })
 
 clients = {}  # Active clients: {websocket: username}
 
