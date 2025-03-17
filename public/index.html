@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Secure Chat Charlie</title>
+
+    <!-- Link to custom CSS -->
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-analytics.js"></script>
+
+    <!-- Custom Firebase configuration -->
+    <script src="js/firebase.js"></script>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="login-container">
+            <h2>Login</h2>
+            <div class="input-box">
+                <input type="text" id="login-email" placeholder="Email">
+                <i class="fas fa-envelope"></i>
+            </div>
+            <div class="input-box">
+                <input type="password" id="login-password" placeholder="Password">
+                <i class="fas fa-lock"></i>
+            </div>
+            <button class="btn" id="login-btn">Login</button>
+            <p>Don't have an account? <a href="#" id="show-register">Register</a></p>
+        </div>
+        <div class="register-container hidden">
+            <h2>Register</h2>
+            <div class="input-box">
+                <input type="text" id="register-email" placeholder="Email">
+                <i class="fas fa-envelope"></i>
+            </div>
+            <div class="input-box">
+                <input type="text" id="register-username" placeholder="Username">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="input-box">
+                <input type="password" id="register-password" placeholder="Password">
+                <i class="fas fa-lock"></i>
+            </div>
+            <div class="input-box">
+                <input type="password" id="confirm-password" placeholder="Confirm Password">
+                <i class="fas fa-lock"></i>
+            </div>
+            <button class="btn" id="register-btn">Register</button>
+            <p>Already have an account? <a href="#" id="show-login">Login</a></p>
+        </div>
+    </div>
+
+    <p id="load">Firebase SDK Loading&hellip;</p>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loadEl = document.querySelector('#load');
+            try {
+                let app = firebase.app();
+                let features = [
+                    'auth', 
+                    'database', 
+                    'analytics'
+                ].filter(feature => typeof app[feature] === 'function');
+                loadEl.textContent = `Firebase SDK loaded with ${features.join(', ')}`;
+            } catch (e) {
+                console.error(e);
+                loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
+            }
+
+            // Show/hide login and register forms
+            document.getElementById('show-register').addEventListener('click', () => {
+                document.querySelector('.login-container').classList.add('hidden');
+                document.querySelector('.register-container').classList.remove('hidden');
+            });
+
+            document.getElementById('show-login').addEventListener('click', () => {
+                document.querySelector('.register-container').classList.add('hidden');
+                document.querySelector('.login-container').classList.remove('hidden');
+            });
+
+            // Password validation function
+            function validatePassword(password) {
+                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+                return passwordRegex.test(password);
+            }
+
+            // Handle user registration
+            document.getElementById('register-btn').addEventListener('click', async () => {
+                const email = document.getElementById('register-email').value;
+                const username = document.getElementById('register-username').value;
+                const password = document.getElementById('register-password').value;
+                const confirmPassword = document.getElementById('confirm-password').value;
+
+                if (password !== confirmPassword) {
+                    alert('Passwords must match');
+                    return;
+                }
+
+                if (!validatePassword(password)) {
+                    alert('Password must contain upper and lower case letters, numbers, and special characters');
+                    return;
+                }
+
+                try {
+                    // Check if email or username already exists
+                    const usersRef = firebase.database().ref('users');
+                    const snapshot = await usersRef.once('value');
+                    const users = snapshot.val();
+                    for (let uid in users) {
+                        if (users[uid].email === email) {
+                            alert('Email already exists');
+                            return;
+                        }
+                        if (users[uid].username === username) {
+                            alert('Username already exists');
+                            return;
+                        }
+                    }
+
+                    // Create user
+                    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+                    await firebase.database().ref('users/' + user.uid).set({
+                        email: user.email,
+                        username: username,
+                        createdAt: new Date().toISOString()
+                    });
+                    alert('Registration successful!');
+                } catch (error) {
+                    console.error(error);
+                    alert('Error: ' + error.message);
+                }
+            });
+
+            // Handle user login
+            document.getElementById('login-btn').addEventListener('click', async () => {
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                try {
+                    const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+                    alert('Login successful!');
+                } catch (error) {
+                    console.error(error);
+                    alert('Error: ' + error.message);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
