@@ -1,10 +1,8 @@
 import firebase_admin
-from firebase_admin import credentials, db
+from firebase_admin import credentials
 
-# Path to your Firebase service account key file
-cred = credentials.Certificate("C:/Users/lilyt/OneDrive/Desktop/SecureChatBeta-main/chat-9d342-firebase-adminsdk-fbsvc-57ba00ac8c.json")
+# Path to your new Firebase service account key file
+cred = credentials.Certificate("c:/Users/lilyt/Downloads/smooth-state-453618-p4-firebase-adminsdk-fbsvc-f7a6ab28ef.json")
 
 # Initialize the app with a service account, granting admin privileges
-firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://chat-9d342-default-rtdb.firebaseio.com'
-})
+firebase_admin.initialize_app(cred)

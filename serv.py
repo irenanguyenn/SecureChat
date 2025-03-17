@@ -1,4 +1,3 @@
-# filepath: c:\Users\lilyt\OneDrive\Desktop\SecureChatBeta-main\serv.py
 import asyncio
 import websockets
 import ssl
