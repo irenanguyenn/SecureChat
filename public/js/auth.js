@@ -1,111 +1,105 @@
-let websocket;
+// Firebase configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyBWxzAPXQEWy9Eld6EbVfYI1RIMJfglDeQ",
+    authDomain: "smooth-state-453618-p4.firebaseapp.com",
+    databaseURL: "https://smooth-state-453618-p4-default-rtdb.firebaseio.com",
+    projectId: "smooth-state-453618-p4",
+    storageBucket: "smooth-state-453618-p4.appspot.com",
+    messagingSenderId: "386881722135",
+    appId: "1:386881722135:web:6a99d55fa4a890268d4952",
+    measurementId: "G-S81WYQY8ZX"
+};
 
-// Function to switch to the login form
-function showLogin() {
-    document.querySelector('.login-container').classList.remove('hidden');
-    document.querySelector('.register-container').classList.add('hidden');
-}
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
 
-// Function to switch to the register form
-function showRegister() {
-    document.querySelector('.register-container').classList.remove('hidden');
-    document.querySelector('.login-container').classList.add('hidden');
-}
-
-// Ensure event listeners for login/register toggling
-document.addEventListener("DOMContentLoaded", () => {
-    document.querySelector('a[href="#"]').addEventListener("click", showRegister);
+auth.onAuthStateChanged((user) => {
+    if (user) {
+        console.log("user logged in: ", user);
+    } else {
+        console.log("user logged out");
+    }
 });
 
-// Function to handle user authentication (Login or Register)
-async function authenticate(action) {
-    let username = document.getElementById(`${action}-username`).value.trim();
-    let password = document.getElementById(`${action}-password`).value.trim();
+// Toggle between login and register forms
+document.addEventListener("DOMContentLoaded", function () {
+    console.log("Auth.js Loaded!");
 
-    if (!username || !password) {
-        alert("Please fill in all fields.");
+    const showRegister = document.getElementById("show-register");
+    const showLogin = document.getElementById("show-login");
+    const loginContainer = document.querySelector(".login-container");
+    const registerContainer = document.querySelector(".register-container");
+
+    if (!showRegister || !showLogin) {
+        console.error("Elements not found! Check if 'show-register' and 'show-login' exist.");
         return;
     }
 
-    const response = await fetch(`http://localhost:5000/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+    showRegister.addEventListener("click", function (event) {
+        event.preventDefault();
+        loginContainer.classList.add("hidden");
+        registerContainer.classList.remove("hidden");
     });
 
-    const result = await response.json();
-    if (result.success) {
-        if (action === "register") {
-            alert("Registration successful! You can now log in.");
-            showLogin();
-        } else {
-            localStorage.setItem("authToken", result.token);
-            alert("Login successful! Redirecting...");
-            setTimeout(() => {
-                window.location.href = "gc.html"; 
-            }, 1000);
-        }
-    } else {
-        alert(result.message || "Authentication failed.");
-    }
-}
-
-// Connect WebSocket with JWT authentication
-function connectWebSocket() {
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-        alert("Unauthorized! Please log in first.");
-        window.location.href = "login.html";
-        return;
-    }
-
-    websocket = new WebSocket(`wss://192.168.12.244:8765/?token=${token}`);
-
-    websocket.onopen = () => {
-        console.log("Connected securely to WebSocket server");
-    };
-
-    websocket.onmessage = (event) => {
-        console.log("Received message:", event.data);
-    };
-
-    websocket.onclose = () => {
-        console.log("Disconnected from WebSocket server");
-    };
-}
-
-// Initial WebSocket connection for authentication
-websocket = new WebSocket('wss://192.168.12.244:8765');
-
-websocket.onopen = () => {
-    console.log('Connected to the authentication server');
-};
-
-websocket.onmessage = (event) => {
-    const response = event.data;
-    console.log("Server response:", response);
-
-    if (response === "Authentication successful!") {
-        alert("Login successful! Redirecting...");
-        localStorage.setItem("loggedInUser", document.getElementById('login-username').value);
-        setTimeout(() => {
-            window.location.href = "gc.html"; 
-        }, 1000);
-    } else if (response === "Registration successful! Please log in.") {
-        alert("Registration successful! You can now log in.");
-        showLogin();
-    } else {
-        alert(response);
-    }
-};
-
-websocket.onclose = () => {
-    console.log('Disconnected from the server');
-};
-
-// Ensure authentication works on page load
-document.addEventListener("DOMContentLoaded", () => {
-    if (window.location.pathname.includes("gc.html")) {
-        connectWebSocket(); 
-    }
+    showLogin.addEventListener("click", function (event) {
+        event.preventDefault();
+        registerContainer.classList.add("hidden");
+        loginContainer.classList.remove("hidden");
+    });
 });
+
+// Registration Form
+const registerForm = document.querySelector('#register-form');
+if (registerForm) {
+    registerForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const email = registerForm['register-email'].value;
+        const password = registerForm['register-password'].value;
+        const confirmPassword = registerForm['confirm-password'].value;
+
+        if (confirmPassword !== password) {
+            alert("Please make sure passwords match");
+        } else {
+            // Create user
+            auth.createUserWithEmailAndPassword(email, password).then(cred => {
+                registerForm.reset();
+                location.href = "/gc.html";
+            }).catch((error) => {
+                alert("Error: " + error.message);
+            });
+        }
+    });
+}
+
+// Login Form
+const loginForm = document.querySelector('#login-form');
+if (loginForm) {
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const email = loginForm['login-email'].value;
+        const password = loginForm['login-password'].value;
+
+        auth.signInWithEmailAndPassword(email, password).then(cred => {
+            loginForm.reset();
+            location.href = "/gc.html";
+        }).catch((error) => {
+            loginForm.reset();
+            alert("Incorrect username or password.");
+        });
+    });
+}
+
+// Log Out
+const logout = document.querySelector("#logout");
+if (logout) {
+    logout.addEventListener('click', (e) => {
+        e.preventDefault();
+
+        auth.signOut().then(() => {
+            location.href = "/index.html";
+        });
+    });
+}
