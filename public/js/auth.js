@@ -14,66 +14,58 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 
+// Listen for authentication state changes
 auth.onAuthStateChanged((user) => {
     if (user) {
-        console.log("user logged in: ", user);
+        console.log("User logged in: ", user);
     } else {
-        console.log("user logged out");
+        console.log("User logged out");
     }
 });
 
-// Toggle between login and register forms
-document.addEventListener("DOMContentLoaded", function () {
-    console.log("Auth.js Loaded!");
-
-    const showRegister = document.getElementById("show-register");
-    const showLogin = document.getElementById("show-login");
-    const loginContainer = document.querySelector(".login-container");
-    const registerContainer = document.querySelector(".register-container");
-
-    if (!showRegister || !showLogin) {
-        console.error("Elements not found! Check if 'show-register' and 'show-login' exist.");
-        return;
-    }
-
-    showRegister.addEventListener("click", function (event) {
-        event.preventDefault();
-        loginContainer.classList.add("hidden");
-        registerContainer.classList.remove("hidden");
-    });
-
-    showLogin.addEventListener("click", function (event) {
-        event.preventDefault();
-        registerContainer.classList.add("hidden");
-        loginContainer.classList.remove("hidden");
-    });
-});
-
-// Registration Form
+// 🟢 REGISTER USER - Store username in Firebase
 const registerForm = document.querySelector('#register-form');
 if (registerForm) {
-    registerForm.addEventListener('submit', (e) => {
+    registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const email = registerForm['register-email'].value;
+        const username = registerForm['register-username'].value.trim().toLowerCase();
         const password = registerForm['register-password'].value;
         const confirmPassword = registerForm['confirm-password'].value;
 
         if (confirmPassword !== password) {
-            alert("Please make sure passwords match");
-        } else {
-            // Create user
-            auth.createUserWithEmailAndPassword(email, password).then(cred => {
-                registerForm.reset();
-                location.href = "/gc.html";
-            }).catch((error) => {
-                alert("Error: " + error.message);
-            });
+            alert("Passwords do not match!");
+            return;
         }
+
+        // Check if username already exists
+        const usernameExists = await checkIfUsernameExists(username);
+        if (usernameExists) {
+            alert("Username already taken. Please choose a different one.");
+            return;
+        }
+
+        // Register user and store in Firebase
+        auth.createUserWithEmailAndPassword(email, password).then(async (cred) => {
+            const userRef = db.ref('users/' + cred.user.uid);
+            await userRef.set({
+                username: username,
+                email: email
+            });
+
+            console.log("User registered and saved in Firebase:", { uid: cred.user.uid, username, email });
+
+            localStorage.setItem("loggedInUsername", username); // Store username in localStorage
+            registerForm.reset();
+            location.href = "/gc.html"; // Redirect to chat
+        }).catch((error) => {
+            alert("Error: " + error.message);
+        });
     });
 }
 
-// Login Form
+// 🟢 LOGIN USER - Retrieve username from Firebase
 const loginForm = document.querySelector('#login-form');
 if (loginForm) {
     loginForm.addEventListener('submit', (e) => {
@@ -82,24 +74,45 @@ if (loginForm) {
         const email = loginForm['login-email'].value;
         const password = loginForm['login-password'].value;
 
-        auth.signInWithEmailAndPassword(email, password).then(cred => {
+        auth.signInWithEmailAndPassword(email, password).then(async (cred) => {
+            const userRef = db.ref("users/" + cred.user.uid);
+            const snapshot = await userRef.once("value");
+            const userData = snapshot.val();
+
+            if (userData && userData.username) {
+                localStorage.setItem("loggedInUsername", userData.username);
+                console.log("Stored username after login:", userData.username);
+            } else {
+                console.error("No username found in database.");
+            }
+
             loginForm.reset();
-            location.href = "/gc.html";
+            location.href = "/gc.html"; // Redirect to chat
         }).catch((error) => {
-            loginForm.reset();
             alert("Incorrect username or password.");
-        });
+        });        
     });
 }
 
-// Log Out
-const logout = document.querySelector("#logout");
-if (logout) {
-    logout.addEventListener('click', (e) => {
-        e.preventDefault();
-
-        auth.signOut().then(() => {
-            location.href = "/index.html";
-        });
-    });
+// 🔍 Check if username already exists
+async function checkIfUsernameExists(username) {
+    const usersRef = db.ref('users');
+    const snapshot = await usersRef.orderByChild('username').equalTo(username).once('value');
+    return snapshot.exists();
 }
+
+// 🟢 LOGOUT USER
+document.addEventListener("DOMContentLoaded", () => {
+    const logoutBtn = document.getElementById("logout-btn");
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener("click", () => {
+            auth.signOut().then(() => {
+                console.log("User logged out.");
+                window.location.href = "index.html";
+            }).catch((error) => {
+                console.error("Logout failed:", error);
+            });
+        });
+    }
+});
