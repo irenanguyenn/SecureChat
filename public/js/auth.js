@@ -83,7 +83,8 @@ if (registerForm) {
         
             console.log("User registered and saved in Firebase:", { uid: cred.user.uid, username, email });
         
-            localStorage.setItem("loggedInUsername", username);
+            sessionStorage.setItem("loggedInUsername", username);
+            console.log("Stored username in sessionStorage (Register):", username);            
             registerForm.reset();
             location.href = "/gc.html"; // Redirect to chat
         })
@@ -108,8 +109,8 @@ if (loginForm) {
             const userData = snapshot.val();
         
             if (userData && userData.username) {
-                localStorage.setItem("loggedInUsername", userData.username);
-                console.log("Stored username after login:", userData.username);
+                sessionStorage.setItem("loggedInUsername", userData.username);
+                console.log("Stored username in sessionStorage:", userData.username);                
             } else {
                 console.error("No username found in database.");
             }
@@ -145,3 +146,4 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 });
+
