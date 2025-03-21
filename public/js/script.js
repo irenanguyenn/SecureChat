@@ -91,12 +91,24 @@ chatRef.on("child_added", (snapshot) => {
 
 // Send Message on Button Click or Enter Key
 document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("send-btn").addEventListener("click", sendMessage);
-    messageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
-    });
+    const sendButton = document.getElementById("send-btn");
+    const messageInput = document.getElementById("message-input");
+
+    if (sendButton) {
+        sendButton.addEventListener("click", sendMessage);
+    } else {
+        console.error("Send button not found in DOM");
+    }
+
+    if (messageInput) {
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    } else {
+        console.error("Message input field not found in DOM");
+    }
 });
 
 // Load Friend Requests
