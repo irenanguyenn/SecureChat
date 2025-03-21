@@ -1,218 +1,142 @@
-// Initializing Firebase
-if (!firebase.apps.length) {
-    firebase.initializeApp({
-        apiKey: "AIzaSyBWxzAPXQEWy9Eld6EbVfYI1RIMJfglDeQ",
-        authDomain: "smooth-state-453618-p4.firebaseapp.com",
-        databaseURL: "https://smooth-state-453618-p4-default-rtdb.firebaseio.com",
-        projectId: "smooth-state-453618-p4",
-        storageBucket: "smooth-state-453618-p4.appspot.com",
-        messagingSenderId: "386881722135",
-        appId: "1:386881722135:web:6a99d55fa4a890268d4952",
-        measurementId: "G-S81WYQY8ZX"
-    });
-} else {
-    firebase.app();
-}
+// Firebase configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyBWxzAPXQEWy9Eld6EbVfYI1RIMJfglDeQ",
+    authDomain: "smooth-state-453618-p4.firebaseapp.com",
+    databaseURL: "https://smooth-state-453618-p4-default-rtdb.firebaseio.com",
+    projectId: "smooth-state-453618-p4",
+    storageBucket: "smooth-state-453618-p4.appspot.com",
+    messagingSenderId: "386881722135",
+    appId: "1:386881722135:web:6a99d55fa4a890268d4952",
+    measurementId: "G-S81WYQY8ZX"
+};
 
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
 const db = firebase.database();
-const chatRef = db.ref("messages");
 
-const chat = document.querySelector('.chat-messages');
-const messageInput = document.querySelector('#message-input');
-const sendButton = document.querySelector('.send-btn');
+// Toggle between Login and Register
+document.addEventListener("DOMContentLoaded", () => {
+    const showRegisterLink = document.getElementById("show-register");
+    const showLoginLink = document.getElementById("show-login");
+    const loginContainer = document.querySelector(".login-container");
+    const registerContainer = document.querySelector(".register-container");
 
-// Fetch Correct Username from Firebase
-async function getCurrentUsername() {
-    let username = localStorage.getItem("loggedInUsername");
+    if (showRegisterLink && showLoginLink && loginContainer && registerContainer) {
+        showRegisterLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            loginContainer.classList.add("hidden");
+            registerContainer.classList.remove("hidden");
+        });
 
-    if (!username) {
-        const user = firebase.auth().currentUser;
-        if (!user) return "Unknown";
-
-        const userRef = db.ref("users/" + user.uid);
-        const snapshot = await userRef.once("value");
-        const userData = snapshot.val();
-        username = userData?.username || "Unknown";
-
-        localStorage.setItem("loggedInUsername", username);
-        console.log("Fetched and stored username:", username);
+        showLoginLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            registerContainer.classList.add("hidden");
+            loginContainer.classList.remove("hidden");
+        });
     }
-
-    return username;
-}
-
-// Send Message with Correct Username
-async function sendMessage() {
-    const message = messageInput.value.trim();
-    if (!message) return;
-
-    const username = await getCurrentUsername();
-
-    chatRef.push({
-        username: username,
-        message: message,
-        timestamp: firebase.database.ServerValue.TIMESTAMP
-    });
-
-    messageInput.value = "";
-}
-
-// Make the function accessible globally
-window.sendMessage = sendMessage;
-
-// Display Messages in Chat
-function displayMessage(username, message) {
-    const loggedInUsername = localStorage.getItem("loggedInUsername") || "Unknown";
-
-    const messageWrapper = document.createElement("div");
-    messageWrapper.classList.add('message-wrapper', username === loggedInUsername ? 'sent' : 'received');
-
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const timestampElement = document.createElement("div");
-    timestampElement.classList.add("timestamp");
-    timestampElement.textContent = timestamp;
-
-    const messageElement = document.createElement("div");
-    messageElement.classList.add("message", username === loggedInUsername ? "sent" : "received");
-    messageElement.textContent = `${username}: ${message}`;
-
-    messageWrapper.appendChild(timestampElement);
-    messageWrapper.appendChild(messageElement);
-    chat.appendChild(messageWrapper);
-
-    chat.scrollTop = chat.scrollHeight; // Auto-scroll to latest message
-}
-
-// Listen for New Messages in Firebase
-chatRef.on("child_added", (snapshot) => {
-    const data = snapshot.val();
-    displayMessage(data.username, data.message);
 });
 
-// Send Message on Button Click or Enter Key
-document.addEventListener("DOMContentLoaded", () => {
-    const sendButton = document.getElementById("send-btn");
-    const messageInput = document.getElementById("message-input");
-
-    if (sendButton) {
-        sendButton.addEventListener("click", sendMessage);
+auth.onAuthStateChanged((user) => {
+    if (user) {
+        console.log("User logged in: ", user);
     } else {
-        console.error("Send button not found in DOM");
+        console.log("User logged out");
     }
+});
 
-    if (messageInput) {
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
+// REGISTER USER - Store username in Firebase
+const registerForm = document.querySelector('#register-form');
+if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const email = registerForm['register-email'].value;
+        const username = registerForm['register-username'].value.trim().toLowerCase();
+        const password = registerForm['register-password'].value;
+        const confirmPassword = registerForm['confirm-password'].value;
+
+        if (confirmPassword !== password) {
+            alert("Passwords do not match!");
+            return;
+        }
+
+        const usernameExists = await checkIfUsernameExists(username);
+        if (usernameExists) {
+            alert("Username already taken. Please choose a different one.");
+            return;
+        }
+
+        auth.createUserWithEmailAndPassword(email, password)
+        .then(async (cred) => {
+            const userRef = db.ref('users/' + cred.user.uid);
+        
+            userRef.set({
+                username: username,
+                email: email
+            })
+            .then(() => {
+                console.log("User successfully stored in database.");
+            })
+            .catch((error) => {
+                console.error("Error storing user in database:", error);
+            });
+        
+            console.log("User registered and saved in Firebase:", { uid: cred.user.uid, username, email });
+        
+            localStorage.setItem("loggedInUsername", username);
+            registerForm.reset();
+            location.href = "/gc.html"; // Redirect to chat
+        })
+        .catch((error) => {
+            alert("Error: " + error.message);
+        });
+    });
+}
+
+// LOGIN USER - Retrieve username from Firebase
+const loginForm = document.querySelector('#login-form');
+if (loginForm) {
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const email = loginForm['login-email'].value;
+        const password = loginForm['login-password'].value;
+
+        auth.signInWithEmailAndPassword(email, password).then(async (cred) => {
+            const userRef = db.ref("users/" + cred.user.uid);
+            const snapshot = await userRef.once("value");
+            const userData = snapshot.val();
+        
+            if (userData && userData.username) {
+                localStorage.setItem("loggedInUsername", userData.username);
+                console.log("Stored username after login:", userData.username);
+            } else {
+                console.error("No username found in database.");
             }
-        });
-    } else {
-        console.error("Message input field not found in DOM");
-    }
-});
-
-// Load Friend Requests
-function loadFriendRequests() {
-    const currentUser = firebase.auth().currentUser;
-    if (!currentUser) return;
-
-    const currentUsername = localStorage.getItem("loggedInUsername");
-    if (!currentUsername) return;
-
-    const requestsRef = db.ref(`friendRequests/${currentUsername}`);
-    requestsRef.on("value", (snapshot) => {
-        const friendRequestsList = document.getElementById("friend-requests");
-        friendRequestsList.innerHTML = "";
-
-        snapshot.forEach((childSnapshot) => {
-            const senderUsername = childSnapshot.key;
-            const requestData = childSnapshot.val();
-
-            const listItem = document.createElement("li");
-            listItem.innerHTML = `
-                ${senderUsername}
-                <button class="accept-btn" data-username="${senderUsername}">✔ Accept</button>
-                <button class="decline-btn" data-username="${senderUsername}">✖ Decline</button>
-            `;
-
-            friendRequestsList.appendChild(listItem);
-        });
-
-        // Add event listeners for Accept/Decline
-        document.querySelectorAll(".accept-btn").forEach((button) => {
-            button.addEventListener("click", acceptFriendRequest);
-        });
-
-        document.querySelectorAll(".decline-btn").forEach((button) => {
-            button.addEventListener("click", declineFriendRequest);
-        });
+        
+            loginForm.reset();
+            location.href = "/gc.html"; // Redirect to chat
+        }).catch((error) => {
+            console.error("Firebase Authentication Error:", error.message);
+            alert(error.message); // Show actual Firebase error message
+        });        
     });
 }
 
-// Accept Friend Request
-async function acceptFriendRequest(event) {
-    const senderUsername = event.target.dataset.username;
-    const currentUsername = localStorage.getItem("loggedInUsername");
-    if (!currentUsername) return;
-
-    // Add both users to each other's friends list
-    const friendsRef1 = db.ref(`friends/${currentUsername}/${senderUsername}`);
-    const friendsRef2 = db.ref(`friends/${senderUsername}/${currentUsername}`);
-
-    await friendsRef1.set(true);
-    await friendsRef2.set(true);
-
-    // Remove the friend request
-    const requestRef = db.ref(`friendRequests/${currentUsername}/${senderUsername}`);
-    await requestRef.remove();
-
-    alert("Friend request accepted!");
+// Check if username already exists
+async function checkIfUsernameExists(username) {
+    const usersRef = db.ref('users');
+    const snapshot = await usersRef.orderByChild('username').equalTo(username).once('value');
+    return snapshot.exists();
 }
 
-// Decline Friend Request
-async function declineFriendRequest(event) {
-    const senderUsername = event.target.dataset.username;
-    const currentUsername = localStorage.getItem("loggedInUsername");
-    if (!currentUsername) return;
-
-    const requestRef = db.ref(`friendRequests/${currentUsername}/${senderUsername}`);
-    await requestRef.remove();
-
-    alert("Friend request declined.");
-}
-
-// Load Friends List
-function loadFriends() {
-    const currentUsername = localStorage.getItem("loggedInUsername");
-    if (!currentUsername) return;
-
-    const friendsRef = db.ref(`friends/${currentUsername}`);
-    friendsRef.on("value", (snapshot) => {
-        const friendsList = document.getElementById("users");
-        friendsList.innerHTML = "";
-
-        snapshot.forEach((childSnapshot) => {
-            const friendUsername = childSnapshot.key;
-
-            const listItem = document.createElement("li");
-            listItem.textContent = friendUsername;
-            friendsList.appendChild(listItem);
-        });
-    });
-}
-
-// Initialize Functions on Page Load
-document.addEventListener("DOMContentLoaded", () => {
-    loadFriendRequests();
-    loadFriends();
-});
-
-// Logout Function
+// LOGOUT USER
 document.addEventListener("DOMContentLoaded", () => {
     const logoutBtn = document.getElementById("logout-btn");
+
     if (logoutBtn) {
         logoutBtn.addEventListener("click", () => {
-            firebase.auth().signOut().then(() => {
+            auth.signOut().then(() => {
                 console.log("User logged out.");
                 window.location.href = "index.html";
             }).catch((error) => {
