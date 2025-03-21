@@ -14,7 +14,28 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 
-// Listen for authentication state changes
+// Toggle between Login and Register
+document.addEventListener("DOMContentLoaded", () => {
+    const showRegisterLink = document.getElementById("show-register");
+    const showLoginLink = document.getElementById("show-login");
+    const loginContainer = document.querySelector(".login-container");
+    const registerContainer = document.querySelector(".register-container");
+
+    if (showRegisterLink && showLoginLink && loginContainer && registerContainer) {
+        showRegisterLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            loginContainer.classList.add("hidden");
+            registerContainer.classList.remove("hidden");
+        });
+
+        showLoginLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            registerContainer.classList.add("hidden");
+            loginContainer.classList.remove("hidden");
+        });
+    }
+});
+
 auth.onAuthStateChanged((user) => {
     if (user) {
         console.log("User logged in: ", user);
@@ -23,7 +44,7 @@ auth.onAuthStateChanged((user) => {
     }
 });
 
-// 🟢 REGISTER USER - Store username in Firebase
+// REGISTER USER - Store username in Firebase
 const registerForm = document.querySelector('#register-form');
 if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
@@ -39,33 +60,40 @@ if (registerForm) {
             return;
         }
 
-        // Check if username already exists
         const usernameExists = await checkIfUsernameExists(username);
         if (usernameExists) {
             alert("Username already taken. Please choose a different one.");
             return;
         }
 
-        // Register user and store in Firebase
-        auth.createUserWithEmailAndPassword(email, password).then(async (cred) => {
+        auth.createUserWithEmailAndPassword(email, password)
+        .then(async (cred) => {
             const userRef = db.ref('users/' + cred.user.uid);
-            await userRef.set({
+        
+            userRef.set({
                 username: username,
                 email: email
+            })
+            .then(() => {
+                console.log("User successfully stored in database.");
+            })
+            .catch((error) => {
+                console.error("Error storing user in database:", error);
             });
-
+        
             console.log("User registered and saved in Firebase:", { uid: cred.user.uid, username, email });
-
-            localStorage.setItem("loggedInUsername", username); // Store username in localStorage
+        
+            localStorage.setItem("loggedInUsername", username);
             registerForm.reset();
             location.href = "/gc.html"; // Redirect to chat
-        }).catch((error) => {
+        })
+        .catch((error) => {
             alert("Error: " + error.message);
         });
     });
 }
 
-// 🟢 LOGIN USER - Retrieve username from Firebase
+// LOGIN USER - Retrieve username from Firebase
 const loginForm = document.querySelector('#login-form');
 if (loginForm) {
     loginForm.addEventListener('submit', (e) => {
@@ -78,30 +106,31 @@ if (loginForm) {
             const userRef = db.ref("users/" + cred.user.uid);
             const snapshot = await userRef.once("value");
             const userData = snapshot.val();
-
+        
             if (userData && userData.username) {
                 localStorage.setItem("loggedInUsername", userData.username);
                 console.log("Stored username after login:", userData.username);
             } else {
                 console.error("No username found in database.");
             }
-
+        
             loginForm.reset();
             location.href = "/gc.html"; // Redirect to chat
         }).catch((error) => {
-            alert("Incorrect username or password.");
+            console.error("Firebase Authentication Error:", error.message);
+            alert(error.message); // Show actual Firebase error message
         });        
     });
 }
 
-// 🔍 Check if username already exists
+// Check if username already exists
 async function checkIfUsernameExists(username) {
     const usersRef = db.ref('users');
     const snapshot = await usersRef.orderByChild('username').equalTo(username).once('value');
     return snapshot.exists();
 }
 
-// 🟢 LOGOUT USER
+// LOGOUT USER
 document.addEventListener("DOMContentLoaded", () => {
     const logoutBtn = document.getElementById("logout-btn");
 
