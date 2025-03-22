@@ -44,7 +44,7 @@ auth.onAuthStateChanged((user) => {
     }
 });
 
-// REGISTER USER - Store username in Firebase
+// Registration Form
 const registerForm = document.querySelector('#register-form');
 if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
@@ -86,7 +86,7 @@ if (registerForm) {
             sessionStorage.setItem("loggedInUsername", username);
             console.log("Stored username in sessionStorage (Register):", username);            
             registerForm.reset();
-            location.href = "/gc.html"; // Redirect to chat
+            location.href = "/gc.html";
         })
         .catch((error) => {
             alert("Error: " + error.message);
@@ -94,7 +94,7 @@ if (registerForm) {
     });
 }
 
-// LOGIN USER - Retrieve username from Firebase
+// Login Form
 const loginForm = document.querySelector('#login-form');
 if (loginForm) {
     loginForm.addEventListener('submit', (e) => {
@@ -116,22 +116,22 @@ if (loginForm) {
             }
         
             loginForm.reset();
-            location.href = "/gc.html"; // Redirect to chat
+            location.href = "/gc.html"; 
         }).catch((error) => {
             console.error("Firebase Authentication Error:", error.message);
-            alert(error.message); // Show actual Firebase error message
+            alert(error.message);
         });        
     });
 }
 
-// Check if username already exists
+// Checks if username exists
 async function checkIfUsernameExists(username) {
     const usersRef = db.ref('users');
     const snapshot = await usersRef.orderByChild('username').equalTo(username).once('value');
     return snapshot.exists();
 }
 
-// LOGOUT USER
+// Logout
 document.addEventListener("DOMContentLoaded", () => {
     const logoutBtn = document.getElementById("logout-btn");
 
@@ -146,4 +146,3 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 });
-
