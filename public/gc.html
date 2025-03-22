@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SecureChat</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300..700;1,300..700&family=Pacifico&display=swap" rel="stylesheet">
@@ -12,29 +12,47 @@
 </head>
 <body>
     <div class="chat-container">
-        <!-- Sidebar -->
         <div class="sidebar">
             <h1 class="company">SecureChat</h1>
             <div class="user-profile">
-                <div class="user-avatar"></div>
-                <span class="user-name">User 1</span>
+                <div class="add-user">
+                    <input type="text" id="add-user-input" placeholder="Add user by username">
+                    <button class="btn small-btn" id="add-user-btn">+</button>
+                </div>
+            </div>
+            <div class="friend-list">
+                <div class="friend-requests">
+                    <h2>Friend Requests</h2>
+                    <ul id="friend-requests"></ul>
+                </div>
+                <div class="user-list" id="user-list">
+                    <h2>Friends</h2>
+                    <div><ul id="users"></ul></div>
+                </div>
+            </div>
+            <div class="logout">
+                <button class="btn" id="logout-btn">Logout</button>
             </div>
         </div>
 
-        <!-- Chat Area -->
-        <div class="chat-area">
+        <div class="chat-area hidden" id="chat-area">
+            <h2 id="chat-header" class="chat-header">Chatting with</h2>
             <div class="chat-messages" id="chat-messages"></div>
-        
-            <!-- Chat Input -->
             <div class="chat-input">
                 <button class="attach-btn"><i class='bx bx-folder'></i></button>
+                <input type="file" id="file-input" style="display: none;" />
                 <input type="text" id="message-input" placeholder="Message">
-                <button class="emoji-btn"><i class='bx bx-smile'></i></button>
-                <button class="send-btn" onclick="sendMessage()"><i class='bx bx-send'></i></button>
+                <button class="emoji-btn" id="emoji-btn"><i class='bx bx-smile'></i></button>
+                <button class="send-btn" id="send-btn"><i class='bx bx-send'></i></button>
+                <emoji-picker id="emoji-picker" style="display: none;"></emoji-picker>
             </div>
         </div>        
     </div>
-    <script src="/js/auth.js"></script>
-    <script src="/js/script.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script type="module" src="js/script.js" defer></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@latest/index.js"></script>
 </body>
 </html>
