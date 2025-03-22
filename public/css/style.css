@@ -13,7 +13,7 @@ body {
     color: white;
 }
 
-/* Login/Register */
+/* Login & Register */
 .auth-container {
     display: flex;
     flex-direction: column;
@@ -289,7 +289,7 @@ button {
 }
 
 .logout {
-
+    margin-top: auto; 
     padding-top: 20px;
 }
 
