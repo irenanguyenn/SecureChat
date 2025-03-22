@@ -5,7 +5,7 @@ if (!firebase.apps.length) {
         authDomain: "smooth-state-453618-p4.firebaseapp.com",
         databaseURL: "https://smooth-state-453618-p4-default-rtdb.firebaseio.com",
         projectId: "smooth-state-453618-p4",
-        storageBucket: "smooth-state-453618-p4.appspot.com",
+        storageBucket: "smooth-state-453618-p4.firebasestorage.app",
         messagingSenderId: "386881722135",
         appId: "1:386881722135:web:6a99d55fa4a890268d4952",
         measurementId: "G-S81WYQY8ZX"
@@ -15,8 +15,8 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.database();
+const storage = firebase.storage();
 
-// Function to fetch current user's username
 async function getCurrentUsername() {
     let username = sessionStorage.getItem("loggedInUsername");
 
@@ -35,7 +35,7 @@ async function getCurrentUsername() {
     return username;
 }
 
-// Function to add a friend
+// Add Friend
 async function addFriend() {
     const usernameToAdd = document.getElementById("add-user-input").value.trim();
     if (!usernameToAdd) return alert("Please enter a username.");
@@ -46,7 +46,6 @@ async function addFriend() {
     const usersRef = db.ref("users");
     usersRef.orderByChild("username").equalTo(usernameToAdd).once("value", async (snapshot) => {
         if (snapshot.exists()) {
-            // Create relationship in both directions
             const updates = {};
             updates[`friends/${currentUsername}/${usernameToAdd}`] = true;
             updates[`friends/${usernameToAdd}/${currentUsername}`] = true;
@@ -61,7 +60,6 @@ async function addFriend() {
     document.getElementById("add-user-input").value = "";
 }
 
-// Event listener for add friend button
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("add-user-btn").addEventListener("click", addFriend);
 });
@@ -102,7 +100,6 @@ function loadFriendRequests() {
             friendRequestsList.appendChild(listItem);
         });
 
-        // Attach event listeners for accepting/declining requests
         document.querySelectorAll(".accept-btn").forEach((button) => {
             button.addEventListener("click", acceptFriendRequest);
         });
@@ -119,7 +116,6 @@ async function acceptFriendRequest(event) {
     const currentUsername = localStorage.getItem("loggedInUsername");
     if (!currentUsername) return;
 
-    // Add both users to each other's friends list
     const friendsRef1 = db.ref(`friends/${currentUsername}/${senderUsername}`);
     const friendsRef2 = db.ref(`friends/${senderUsername}/${currentUsername}`);
 
@@ -130,8 +126,6 @@ async function acceptFriendRequest(event) {
     
     loadFriends();
     
-
-    // Remove the friend request
     const requestRef = db.ref(`friendRequests/${currentUsername}/${senderUsername}`);
     await requestRef.remove();
 
@@ -151,27 +145,19 @@ async function declineFriendRequest(event) {
 }
 
 // Load Friends List
-function loadFriends() {
-    const currentUsername = sessionStorage.getItem("loggedInUsername");
-    if (!currentUsername) return;
+const currentUsername = await getCurrentUsername();
+const friendsRef = db.ref(`friends/${currentUsername}`);
 
-    console.log("Loading friends for:", currentUsername);
-
+async function loadFriends() {
+    const currentUsername = await getCurrentUsername();
     const friendsRef = db.ref(`friends/${currentUsername}`);
-    friendsRef.on("value", (snapshot) => {
-        console.log("/.l.,l.,.,Friends snapshot:", snapshot.val());
+    const friendsListContainer = document.getElementById("users"); 
 
-        const friendsList = document.getElementById("users");
-        friendsList.innerHTML = ""; // Clear existing list
+    friendsListContainer.innerHTML = "";
 
-        if (!snapshot.exists()) {
-            console.log("No friends found for:", currentUsername);
-            return;
-        }
-
+    friendsRef.once("value", (snapshot) => {
         snapshot.forEach((childSnapshot) => {
             const friendUsername = childSnapshot.key;
-            console.log("Found friend:", friendUsername);
 
             const listItem = document.createElement("li");
 
@@ -179,19 +165,30 @@ function loadFriends() {
             nameSpan.textContent = friendUsername;
             nameSpan.classList.add("friend-name");
             nameSpan.style.cursor = "pointer";
+
+            const statusRef = db.ref(`status/${friendUsername}`);
+            statusRef.on("value", (statusSnapshot) => {
+                const status = statusSnapshot.val();
+                if (status && status.state === "online") {
+                    nameSpan.classList.add("online");
+                } else {
+                    nameSpan.classList.remove("online");
+                }
+            });
+
             nameSpan.addEventListener("click", () => {
                 startPrivateChat(friendUsername);
             });
-                        
+
             const removeBtn = document.createElement("button");
             removeBtn.classList.add("remove-btn");
-            removeBtn.innerHTML = "🗑";
-            removeBtn.setAttribute("data-username", friendUsername);
+            removeBtn.dataset.username = friendUsername;
+            removeBtn.innerHTML = "<i class='bx bx-trash'></i>"; 
             removeBtn.addEventListener("click", removeFriend);
             
             listItem.appendChild(nameSpan);
-            listItem.appendChild(removeBtn);            
-            friendsList.appendChild(listItem);
+            listItem.appendChild(removeBtn);
+            friendsListContainer.appendChild(listItem);
         });
     });
 }
@@ -202,7 +199,6 @@ async function removeFriend(event) {
     const currentUsername = sessionStorage.getItem("loggedInUsername");
     if (!currentUsername || !friendUsername) return;
 
-    // Remove friendship from both users
     const updates = {};
     updates[`friends/${currentUsername}/${friendUsername}`] = null;
     updates[`friends/${friendUsername}/${currentUsername}`] = null;
@@ -224,13 +220,10 @@ async function setupHeartbeat() {
     const statusRef = db.ref(`status/${username}`);
     const systemMsgRef = db.ref("systemMessages");
 
-    // Mark as online
     statusRef.set({ state: "online", lastSeen: firebase.database.ServerValue.TIMESTAMP });
 
-    // Handle unexpected disconnect
     statusRef.onDisconnect().set({ state: "offline", lastSeen: firebase.database.ServerValue.TIMESTAMP });
 
-    // Generate a new system message key
     const newMsgRef = systemMsgRef.push();
     newMsgRef.onDisconnect().set({
         type: "disconnect",
@@ -238,7 +231,6 @@ async function setupHeartbeat() {
         timestamp: firebase.database.ServerValue.TIMESTAMP
     });
 
-    // Send heartbeat every 5 seconds
     setInterval(() => {
         statusRef.set({ state: "online", lastSeen: firebase.database.ServerValue.TIMESTAMP });
     }, 5000);
@@ -251,18 +243,18 @@ async function setupHeartbeat() {
     });
 }
 
-// Initialize Functions on Page Load
 firebase.auth().onAuthStateChanged((user) => {
     if (user) {
         console.log("Auth ready:", user.email);
         loadFriendRequests();
         loadFriends();
-        setupHeartbeat(); // 👈 Add this
+        setupHeartbeat(); 
     } else {
         console.warn("No user signed in yet");
     }
 });
 
+// Group Chat Toggle
 let selectedFriend = null;
 let privateChatRef = null;
 
@@ -275,8 +267,31 @@ async function startPrivateChat(friendUsername) {
 
     document.getElementById("chat-messages").innerHTML = "";
     document.getElementById("chat-header").textContent = `Chatting with ${friendUsername}`;
+    document.getElementById("chat-area").classList.remove("hidden");
+    document.querySelector(".sidebar").classList.add("shrink");
 
-    privateChatRef.off(); // Remove previous listeners
+    let disconnectNotified = false;
+
+    const friendStatusRef = db.ref(`status/${friendUsername}`);
+    friendStatusRef.on("value", (snapshot) => {
+        const status = snapshot.val();
+        if (!status) return;
+
+        const now = Date.now();
+        const lastSeen = status.lastSeen;
+        const secondsSinceLastSeen = (now - lastSeen) / 1000;
+
+        if (secondsSinceLastSeen > 60 && status.state === "offline" && !disconnectNotified) {
+            displaySystemMessage(`${friendUsername} disconnected from chat.`);
+            disconnectNotified = true;
+        }
+
+        if (status.state === "online") {
+            disconnectNotified = false;
+        }
+    });
+
+    privateChatRef.off(); 
     privateChatRef.on("child_added", (snapshot) => {
         const data = snapshot.val();
         displayMessage(data.username, data.message);
@@ -313,29 +328,24 @@ async function sendMessage() {
     const username = await getCurrentUsername();
     const now = Date.now();
 
-    // Remove old timestamps outside the spam window
     while (messageTimestamps.length > 0 && now - messageTimestamps[0] > SPAM_WINDOW) {
         messageTimestamps.shift();
     }
 
-    // Check if user has exceeded message limit
     if (messageTimestamps.length >= MAX_MESSAGES) {
         isCooldown = true;
         alert("You are sending messages too fast. Please wait 20 seconds.");
         
-        // Auto-remove cooldown after 20 seconds
         setTimeout(() => {
             isCooldown = false;
-            messageTimestamps.length = 0; // Reset message history
+            messageTimestamps.length = 0;
         }, COOLDOWN_TIME);
 
         return;
     }
 
-    // Record timestamp
     messageTimestamps.push(now);
 
-    // Send message to Firebase
     const refToUse = privateChatRef || chatRef;
     refToUse.push({
         username: username,
@@ -353,7 +363,7 @@ const messageInput = document.querySelector('#message-input');
 const sendButton = document.querySelector('.send-btn');
 window.sendMessage = sendMessage;
 
-// Display Messages in Chat
+// Chat Messages
 function displayMessage(username, message) {
     const loggedInUsername = sessionStorage.getItem("loggedInUsername") || "Unknown";
 
@@ -368,26 +378,37 @@ function displayMessage(username, message) {
     const messageElement = document.createElement("div");
     messageElement.classList.add("message");
     
-    // Apply different styles for sent and received messages
     if (username === loggedInUsername) {
         messageElement.classList.add("sent");
-        messageElement.style.backgroundColor = "#31737A"; // Right side
+        messageElement.style.backgroundColor = "#31737A"; 
         messageElement.style.color = "white";
         messageWrapper.style.justifyContent = "flex-end";
     } else {
         messageElement.classList.add("received");
-        messageElement.style.backgroundColor = "#E0E0E0"; // Left side
+        messageElement.style.backgroundColor = "#E0E0E0";
         messageElement.style.color = "black";
         messageWrapper.style.justifyContent = "flex-start";
     }
 
-    messageElement.textContent = `${username}: ${message}`;
+    const isImageTag = message.includes("<img");
+    messageElement.innerHTML = isImageTag ? `${message}` : `${username}: ${message}`;
+
+    if (message.includes("https://") && (message.includes(".png") || message.includes(".jpg") || message.includes(".jpeg") || message.includes(".gif"))) {
+        const img = document.createElement("img");
+        img.src = message.match(/https?:\/\/[^\s]+/)[0];
+        img.alt = "Image";
+        img.style.maxWidth = "200px";
+        img.style.borderRadius = "10px";
+        img.style.marginTop = "5px";
+        messageElement.appendChild(document.createElement("br"));
+        messageElement.appendChild(img);
+    }
     
     messageWrapper.appendChild(timestampElement);
     messageWrapper.appendChild(messageElement);
     chat.appendChild(messageWrapper);
 
-    chat.scrollTop = chat.scrollHeight; // Auto-scroll to latest message
+    chat.scrollTop = chat.scrollHeight; 
 }
 
 function displaySystemMessage(message) {
@@ -406,13 +427,11 @@ function displaySystemMessage(message) {
     chat.scrollTop = chat.scrollHeight;
 }
 
-// Listen for New Messages in Firebase
 chatRef.on("child_added", (snapshot) => {
     const data = snapshot.val();
     displayMessage(data.username, data.message);
 });
 
-// Send Message on Button Click or Enter Key
 document.addEventListener("DOMContentLoaded", () => {
     const sendButton = document.getElementById("send-btn");
     const messageInput = document.getElementById("message-input");
@@ -433,6 +452,81 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Message input field not found in DOM");
     }
 });
+
+//File Upload 
+const attachBtn = document.querySelector(".attach-btn");
+const fileInput = document.getElementById("file-input");
+
+attachBtn.addEventListener("click", () => {
+    fileInput.click();
+});
+
+fileInput.addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/gif", "application/pdf", "text/plain"];
+    const maxSizeMB = 10;
+
+    if (!allowedTypes.includes(file.type)) {
+        alert("Only images, PDFs, and text files are allowed.");
+        return;
+    }
+
+    if (file.size > maxSizeMB * 1024 * 1024) {
+        alert("File is too large. Max 10MB allowed.");
+        return;
+    }
+
+    const username = await getCurrentUsername();
+    const timestamp = Date.now();
+    const fileName = `${timestamp}_${file.name}`;
+    const storageRef = storage.ref().child(`uploads/${username}/${fileName}`);
+
+    try {
+        console.log("Uploading file:", file.name);
+        const snapshot = await storageRef.put(file);
+        console.log("Upload complete!");
+
+        const downloadURL = await snapshot.ref.getDownloadURL();
+        console.log("File URL:", downloadURL);
+
+        let message;
+        if (file.type.startsWith("image/")) {
+            message = `<img src="${downloadURL}" alt="${file.name}" style="max-width: 200px; border-radius: 10px;" />`;
+        } else {
+            message = `<a href="${downloadURL}" target="_blank">${file.name}</a>`;
+        }
+
+        const refToUse = privateChatRef || chatRef;
+        refToUse.push({
+            username: username,
+            message: message,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        fileInput.value = "";
+    } catch (error) {
+        console.error("Upload failed:", error);
+        alert("Failed to upload file.");
+    }
+});
+
+// Emoji Picker
+const emojiBtn = document.getElementById("emoji-btn");
+const emojiPicker = document.getElementById("emoji-picker");
+const messageInputBox = document.getElementById("message-input");
+
+emojiBtn.addEventListener("click", () => {
+    emojiPicker.style.display = (emojiPicker.style.display === "none") ? "block" : "none";
+});
+
+emojiPicker.addEventListener("emoji-click", (event) => {
+    const emoji = event.detail.unicode;
+    messageInputBox.value += emoji;
+    emojiPicker.style.display = "none";
+});
+
 
 // Logout Function
 document.addEventListener("DOMContentLoaded", () => {
