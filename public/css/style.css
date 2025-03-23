@@ -13,6 +13,10 @@ body {
     color: white;
 }
 
+#load {
+    color:#31737A;
+}
+
 /* Login & Register */
 .auth-container {
     display: flex;
