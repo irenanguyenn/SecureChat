@@ -54,7 +54,17 @@ if (registerForm) {
         const username = registerForm['register-username'].value.trim().toLowerCase();
         const password = registerForm['register-password'].value;
         const confirmPassword = registerForm['confirm-password'].value;
-
+        
+        if (password.length < 8) {
+            alert("You need a minimum of 8 characters long");
+            return;
+        }
+        
+        if (confirmPassword !== password) {
+            alert("Passwords do not match!");
+            return;
+        }
+        
         if (confirmPassword !== password) {
             alert("Passwords do not match!");
             return;
@@ -96,31 +106,55 @@ if (registerForm) {
 
 // Login Form
 const loginForm = document.querySelector('#login-form');
+let loginAttempts = 0;
+let lastFailedAttemptTime = null;
+const MAX_ATTEMPTS = 3;
+const COOLDOWN_MS = 10000; 
+
 if (loginForm) {
     loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
-
+    
+        const now = Date.now();
+    
+        if (loginAttempts >= MAX_ATTEMPTS && lastFailedAttemptTime && (now - lastFailedAttemptTime < COOLDOWN_MS)) {
+            const waitTime = Math.ceil((COOLDOWN_MS - (now - lastFailedAttemptTime)) / 1000);
+            alert(`Too many failed attempts. Please wait ${waitTime} more seconds.`);
+            return;
+        }
+    
         const email = loginForm['login-email'].value;
         const password = loginForm['login-password'].value;
-
+    
         auth.signInWithEmailAndPassword(email, password).then(async (cred) => {
+            loginAttempts = 0;
+            lastFailedAttemptTime = null;
+    
             const userRef = db.ref("users/" + cred.user.uid);
             const snapshot = await userRef.once("value");
             const userData = snapshot.val();
-        
+    
             if (userData && userData.username) {
                 sessionStorage.setItem("loggedInUsername", userData.username);
                 console.log("Stored username in sessionStorage:", userData.username);                
             } else {
                 console.error("No username found in database.");
             }
-        
+    
             loginForm.reset();
             location.href = "/gc.html"; 
         }).catch((error) => {
             console.error("Firebase Authentication Error:", error.message);
-            alert(error.message);
-        });        
+            
+            loginAttempts++;
+            lastFailedAttemptTime = Date.now();
+    
+            if (loginAttempts >= MAX_ATTEMPTS) {
+                alert("Too many failed attempts. Please wait 10 seconds before trying again.");
+            } else {
+                alert("Email or password is incorrect.");
+            }
+        });
     });
 }
 
