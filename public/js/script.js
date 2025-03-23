@@ -322,8 +322,22 @@ async function sendMessage() {
         return;
     }
 
-    const message = messageInput.value.trim();
+    let message = messageInputBox.value.trim();
     if (!message) return;
+
+    // Apply formatting
+    switch (currentFormat) {
+        case "bold":
+            message = `<b>${message}</b>`;
+            break;
+        case "italic":
+            message = `<i>${message}</i>`;
+            break;
+        case "normal":
+        default:
+            // no change
+            break;
+    }
 
     const username = await getCurrentUsername();
     const now = Date.now();
@@ -335,12 +349,10 @@ async function sendMessage() {
     if (messageTimestamps.length >= MAX_MESSAGES) {
         isCooldown = true;
         alert("You are sending messages too fast. Please wait 20 seconds.");
-        
         setTimeout(() => {
             isCooldown = false;
             messageTimestamps.length = 0;
         }, COOLDOWN_TIME);
-
         return;
     }
 
@@ -353,7 +365,7 @@ async function sendMessage() {
         timestamp: firebase.database.ServerValue.TIMESTAMP
     });
 
-    messageInput.value = "";
+    messageInputBox.value = "";
 }
 
 const chatRef = db.ref("messages");
@@ -516,6 +528,28 @@ fileInput.addEventListener("change", async (event) => {
 const emojiBtn = document.getElementById("emoji-btn");
 const emojiPicker = document.getElementById("emoji-picker");
 const messageInputBox = document.getElementById("message-input");
+const formatButtons = document.querySelectorAll(".format-btn");
+let currentFormat = "normal";
+
+formatButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+        currentFormat = btn.dataset.format;
+    });
+});
+
+// Link button logic
+const linkBtn = document.querySelector(".link-btn");
+if (linkBtn) {
+    linkBtn.addEventListener("click", () => {
+        const url = prompt("Enter URL (https://...)");
+        if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+            const linkHTML = `<a href="${url}" target="_blank">${url}</a>`;
+            messageInputBox.value += linkHTML;
+        } else {
+            alert("Invalid URL");
+        }
+    });
+}
 
 emojiBtn.addEventListener("click", () => {
     emojiPicker.style.display = (emojiPicker.style.display === "none") ? "block" : "none";
