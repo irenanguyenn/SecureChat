@@ -21,10 +21,6 @@
                 </div>
             </div>
             <div class="friend-list">
-                <div class="friend-requests">
-                    <h2>Friend Requests</h2>
-                    <ul id="friend-requests"></ul>
-                </div>
                 <div class="user-list" id="user-list">
                     <h2>Friends</h2>
                     <div><ul id="users"></ul></div>
@@ -39,6 +35,11 @@
             <h2 id="chat-header" class="chat-header">Chatting with</h2>
             <div class="chat-messages" id="chat-messages"></div>
             <div class="chat-input">
+                <div class="formatting-controls">
+                    <button class="format-btn" data-format="bold"><b>B</b></button>
+                    <button class="format-btn" data-format="italic"><i>I</i></button>
+                    <button class="link-btn">🔗</button>
+                </div>
                 <button class="attach-btn"><i class='bx bx-folder'></i></button>
                 <input type="file" id="file-input" style="display: none;" />
                 <input type="text" id="message-input" placeholder="Message">
