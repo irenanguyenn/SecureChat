@@ -32,7 +32,7 @@ git clone https://github.com/irenanguyenn/WebSocket-Project
 ### Step 2: Install Dependencies
 Navigate to the project directory and install the required dependencies:
 ```bash
-cd SecureChatBeta-branch320
+cd SecureChatBeta-main
 npm install
 ```
 
@@ -53,7 +53,7 @@ Open your web browser and navigate to `http://[yourIPaddress]:5000` to access th
 
 #### **IMPORTANT:**  
 - Using different devices to communicate, they must be on the same internet connection.  
-- The **server's public IP** must be manually set inside `cli-one.py` and `cli-two.py` before running.  
+- Must be on the same internet
 - **CSUF Wi-Fi is NOT recommended** due to dynamic public IP assignment, which causes connection failures.  
 
 
