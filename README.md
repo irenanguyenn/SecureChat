@@ -51,7 +51,7 @@ All Firebase credentials are already embedded in the `auth.js` and `script.js` f
 ### Step 1: Clone the Repository
 Clone the repository to your local machine:
 ```bash
-git clone https://github.com/irenanguyenn/SecureChatBeta-main
+https://github.com/irenanguyenn/SecureChatBeta.git
 ```
 
 ### Step 2: Install Dependencies
