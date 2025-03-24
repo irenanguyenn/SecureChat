@@ -1,7 +1,7 @@
 # Secure Chat
 
 ## Overview 
-The project's goal is to create a real-time communication tool aimed for remote teams that require secure efficient communication without relying on slack or teams. Users can login or register, add frieds and begin instantly messaging other users.
+The project's goal is to create a real-time communication tool aimed for remote teams that require secure efficient communication without relying on slack or teams. Users can login or register, add friends and begin instantly messaging other users.
 ## Features
 - End-to-End Encrypted Communication via WSS
 - User Authentication (Login/Register with bcrypt hashing)
