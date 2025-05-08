@@ -160,6 +160,39 @@ p a:hover {
     width: 40px; 
     height: 35px;
 }
+.request-list ul {
+    list-style: none;
+    padding: 0;
+}
+
+.request-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #ffffff20;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border-radius: 5px;
+}
+
+.request-list .accept-btn,
+.request-list .decline-btn {
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.request-list .accept-btn {
+    color: #4CAF50;
+}
+
+.request-list .decline-btn {
+    color: #ff4b4b;
+}
+
 .friend-list ul {
     list-style: none;
     padding: 0;
