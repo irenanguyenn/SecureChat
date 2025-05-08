@@ -17,131 +17,280 @@ if (!firebase.apps.length) {
 const db = firebase.database();
 const storage = firebase.storage();
 
+// XSS protection helpers
+function sanitizeInput(input) {
+    const div = document.createElement("div");
+    div.textContent = input;
+    return div.innerHTML;
+}
+
+function escapeHTML(input) {
+    const div = document.createElement("div");
+    div.textContent = input;
+    return div.innerHTML;
+}
+
+function isValidUsername(username) {
+    const regex = /^(?=.*[a-zA-Z])[a-zA-Z0-9]{3,10}$/;  
+    const lowerUsername = username.toLowerCase();
+    return regex.test(username) && lowerUsername !== "admin";
+}
+
+function isValidURL(url) {
+    try {
+        const parsed = new URL(url);
+        return ["http:", "https:"].includes(parsed.protocol);
+    } catch (_) {
+        return false;
+    }
+}
+
+function containsDangerousTags(input) {
+    const sanitized = input.toLowerCase().replace(/\s+/g, "");
+    const pattern = /<(script|img|iframe|object|embed|link|style|svg|base|meta|form|input|button)|on\w+=|javascript:|data:text\/html|<\s*\/\s*script>/gi;
+    return pattern.test(sanitized);
+}
+
 async function getCurrentUsername() {
     let username = sessionStorage.getItem("loggedInUsername");
 
     if (!username) {
         const user = firebase.auth().currentUser;
-        if (!user) return "Unknown";
 
-        const userRef = db.ref("users/" + user.uid);
+        // Defensive null check
+        if (!user || !user.uid) {
+            console.warn("getCurrentUsername() called with no authenticated user.");
+            return "Unknown";
+        }
+
+        const userRef = db.ref("users/" + user.uid + "/public");
         const snapshot = await userRef.once("value");
         const userData = snapshot.val();
-        username = userData?.username || "Unknown";
+        username = userData?.username || "Unknown";  // <-- No const here!
 
         sessionStorage.setItem("loggedInUsername", username);
         console.log("Username stored in sessionStorage:", username);
     }
+
     return username;
 }
 
 // Add Friend
 async function addFriend() {
-    const usernameToAdd = document.getElementById("add-user-input").value.trim();
-    if (!usernameToAdd) return alert("Please enter a username.");
+    try {
+        const inputEl = document.getElementById("add-user-input");
+        const usernameToAdd = sanitizeInput(inputEl.value.trim());
 
-    const currentUsername = await getCurrentUsername();
-    if (usernameToAdd === currentUsername) return alert("You cannot add yourself.");
+        console.log("User input:", usernameToAdd);
 
-    const usersRef = db.ref("users");
-    usersRef.orderByChild("username").equalTo(usernameToAdd).once("value", async (snapshot) => {
+        if (!usernameToAdd) {
+            alert("Please enter a username.");
+            return;
+        }
+
+        if (!isValidUsername(usernameToAdd) || containsDangerousTags(usernameToAdd)) {
+            alert("Invalid username format.");
+            return;
+        }
+
+        const currentUsername = await getCurrentUsername();
+        console.log("Current user:", currentUsername);
+
+        if (usernameToAdd.toLowerCase() === currentUsername.toLowerCase()) {
+            alert("You cannot add yourself.");
+            return;
+        }
+
+        const friendRef = db.ref(`friends/${currentUsername}/${usernameToAdd}`);
+        const isFriendSnap = await friendRef.once("value");
+        if (isFriendSnap.exists()) {
+            alert("You are already friends with this user.");
+            return;
+        }
+
+        const sentRequestRef = db.ref(`friendRequests/${usernameToAdd}/${currentUsername}`);
+        const pendingSentSnap = await sentRequestRef.once("value");
+        if (pendingSentSnap.exists()) {
+            alert("Friend request already sent and pending.");
+            return;
+        }
+
+        const receivedRequestRef = db.ref(`friendRequests/${currentUsername}/${usernameToAdd}`);
+        const receivedSnap = await receivedRequestRef.once("value");
+        if (receivedSnap.exists()) {
+            alert(`${usernameToAdd} has already sent you a request. Accept it instead.`);
+            return;
+        }
+
+        const usersRef = db.ref("users");
+        const query = usersRef.orderByChild("public/username").equalTo(usernameToAdd);
+        const snapshot = await query.once("value");
+
         if (snapshot.exists()) {
-            const updates = {};
-            updates[`friends/${currentUsername}/${usernameToAdd}`] = true;
-            updates[`friends/${usernameToAdd}/${currentUsername}`] = true;
-
-            await db.ref().update(updates);
-            alert(`You are now friends with ${usernameToAdd}`);
+            const requestRef = db.ref(`friendRequests/${usernameToAdd}/${currentUsername}`);
+            await requestRef.set(true);
+            alert(`Friend request sent to ${usernameToAdd}`);
         } else {
             alert("User not found.");
         }
-    });
 
-    document.getElementById("add-user-input").value = "";
+        inputEl.value = "";
+
+    } catch (err) {
+        console.error("Error in addFriend():", err);
+        alert("Something went wrong while adding a friend. Check the console.");
+    }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("add-user-btn").addEventListener("click", addFriend);
+    const addBtn = document.getElementById("add-user-btn");
+    const input = document.getElementById("add-user-input");
+
+    if (addBtn) {
+        addBtn.addEventListener("click", addFriend);
+    }
+
+    if (input) {
+        input.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                addFriend();
+            }
+        });
+    }
 });
 
+  
 // Load Friend Requests
-function loadFriendRequests() {
-    const currentUsername = sessionStorage.getItem("loggedInUsername");
-
+const loadFriendRequests = () => {
+    const currentUsername = sessionStorage.getItem("username");
+    
     if (!currentUsername) {
-        console.error("No username in sessionStorage");
+        console.error("No username in sessionStorage. Cannot load friend requests.");
         return;
     }
 
     console.log("Loading friend requests for:", currentUsername);
+    const friendRequestsRef = db.ref("friendRequests/" + currentUsername);
 
-    const requestsRef = db.ref(`friendRequests/${currentUsername}`);
-    requestsRef.on("value", (snapshot) => {
-        console.log("Friend requests snapshot:", snapshot.val());
+    friendRequestsRef.once("value")
+        .then(snapshot => {
+            console.log("Friend requests snapshot for", currentUsername, ":", snapshot.val());
 
-        const friendRequestsList = document.getElementById("friend-requests");
-        friendRequestsList.innerHTML = "";
+            const friendRequestsContainer = document.getElementById("friend-requests");
+            friendRequestsContainer.innerHTML = ""; // Clear existing
 
-        if (!snapshot.exists()) {
-            console.log("No friend requests found for:", currentUsername);
-            return;
-        }
-
-        snapshot.forEach((childSnapshot) => {
-            const senderUsername = childSnapshot.key;
-            console.log("Friend request from:", senderUsername);
-
-            const listItem = document.createElement("li");
-            listItem.innerHTML = `
-                ${senderUsername}
-                <button class="accept-btn" data-username="${senderUsername}">✔ Accept</button>
-                <button class="decline-btn" data-username="${senderUsername}">✖ Decline</button>
-            `;
-            friendRequestsList.appendChild(listItem);
+            if (snapshot.exists()) {
+                snapshot.forEach(childSnapshot => {
+                    const fromUser = childSnapshot.key;
+                    console.log("Request from:", fromUser);
+            
+                    // Create wrapper div
+                    const requestElement = document.createElement("div");
+                    requestElement.style.display = "flex";
+                    requestElement.style.justifyContent = "space-between";
+                    requestElement.style.alignItems = "center";
+                    requestElement.style.marginBottom = "8px";
+            
+                    // Username text
+                    const nameSpan = document.createElement("span");
+                    nameSpan.textContent = fromUser;
+                    requestElement.appendChild(nameSpan);
+            
+                    // Button container
+                    const btnContainer = document.createElement("div");
+            
+                    const acceptBtn = document.createElement("button");
+                    acceptBtn.textContent = "✔";
+                    acceptBtn.style.color = "white";
+                    acceptBtn.style.border = "none";
+                    acceptBtn.style.marginRight = "5px";
+                    acceptBtn.style.cursor = "pointer";
+                    acceptBtn.onclick = () => acceptFriendRequest(fromUser);
+                    acceptBtn.dataset.username = fromUser; 
+                    acceptBtn.onclick = acceptFriendRequest; 
+            
+                    const declineBtn = document.createElement("button");
+                    declineBtn.textContent = "✖";
+                    declineBtn.style.color = "red";
+                    declineBtn.style.border = "none";
+                    declineBtn.style.cursor = "pointer";
+                    declineBtn.onclick = () => declineFriendRequest(fromUser);
+                    declineBtn.dataset.username = fromUser; 
+                    declineBtn.onclick = declineFriendRequest; 
+            
+                    btnContainer.appendChild(acceptBtn);
+                    btnContainer.appendChild(declineBtn);
+                    requestElement.appendChild(btnContainer);
+            
+                    friendRequestsContainer.appendChild(requestElement);
+                });
+            } else {
+                friendRequestsContainer.textContent = "";
+            }
+        })
+        .catch(error => {
+            console.error("Error loading friend requests:", error);
         });
-
-        document.querySelectorAll(".accept-btn").forEach((button) => {
-            button.addEventListener("click", acceptFriendRequest);
-        });
-
-        document.querySelectorAll(".decline-btn").forEach((button) => {
-            button.addEventListener("click", declineFriendRequest);
-        });
-    });
-}
+};
 
 // Accept Friend Request
 async function acceptFriendRequest(event) {
-    const senderUsername = event.target.dataset.username;
-    const currentUsername = localStorage.getItem("loggedInUsername");
-    if (!currentUsername) return;
+    const button = event.currentTarget;
+    const senderUsername = button.dataset.username;
+    const currentUsername = await getCurrentUsername();
 
-    const friendsRef1 = db.ref(`friends/${currentUsername}/${senderUsername}`);
-    const friendsRef2 = db.ref(`friends/${senderUsername}/${currentUsername}`);
+    if (!currentUsername || !senderUsername) {
+        console.error("Missing username information.");
+        return;
+    }
 
-    await Promise.all([
-        friendsRef1.set(true),
-        friendsRef2.set(true)
-    ]);
-    
-    loadFriends();
-    
-    const requestRef = db.ref(`friendRequests/${currentUsername}/${senderUsername}`);
-    await requestRef.remove();
+    try {
+        const updates = {};
+        // First: update irena's friends list
+        await db.ref(`friends/${currentUsername}/${senderUsername}`).set(true);
 
-    alert("Friend request accepted!");
+        // Then: update sender's friends list
+        await db.ref(`friends/${senderUsername}/${currentUsername}`).set(true);
+
+        // Then: delete the friend request entries
+        await db.ref(`friendRequests/${currentUsername}/${senderUsername}`).remove();
+
+        await db.ref().update(updates);
+        console.log(`Friend request from ${senderUsername} accepted.`);
+        await loadFriendRequests();
+        await loadFriends();
+    } catch (error) {
+        console.error("Error accepting friend request:", error);
+    }
 }
 
 // Decline Friend Request
 async function declineFriendRequest(event) {
-    const senderUsername = event.target.dataset.username;
-    const currentUsername = localStorage.getItem("loggedInUsername");
-    if (!currentUsername) return;
+    const button = event.currentTarget;
+    const senderUsername = button.dataset.username;
+    const currentUsername = await getCurrentUsername();
 
-    const requestRef = db.ref(`friendRequests/${currentUsername}/${senderUsername}`);
-    await requestRef.remove();
+    if (!currentUsername || !senderUsername) {
+        console.error("Missing username information.");
+        return;
+    }
 
-    alert("Friend request declined.");
+    try {
+        const updates = {};
+
+        // Remove friend request (receiver side)
+        updates[`friendRequests/${currentUsername}/${senderUsername}`] = null;
+
+        // Remove friend request sent (sender side)
+        updates[`friendRequestSent/${senderUsername}/${currentUsername}`] = null;
+
+        await db.ref().update(updates);
+        console.log(`Friend request from ${senderUsername} declined.`);
+        await loadFriendRequests();
+        await loadFriends();
+    } catch (error) {
+        console.error("Error declining friend request:", error);
+    }
 }
 
 // Load Friends List
@@ -196,7 +345,7 @@ async function loadFriends() {
 // Remove Friend Function
 async function removeFriend(event) {
     const friendUsername = event.target.dataset.username;
-    const currentUsername = sessionStorage.getItem("loggedInUsername");
+    const username = await getCurrentUsername();
     if (!currentUsername || !friendUsername) return;
 
     const updates = {};
@@ -216,11 +365,25 @@ async function removeFriend(event) {
 let disconnectMsgRef = null;
 
 async function setupHeartbeat() {
-    const username = await getCurrentUsername();
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        console.warn("setupHeartbeat(): no authenticated user");
+        return;
+    }
+
+    const snapshot = await db.ref("users/" + user.uid + "/public").once("value");
+    const userData = snapshot.val();
+    const username = userData?.username;
+
+    if (!username) {
+        console.warn("setupHeartbeat(): username missing in public profile");
+        return;
+    }
+
     const statusRef = db.ref(`status/${username}`);
     const systemMsgRef = db.ref("systemMessages");
 
-    statusRef.set({ state: "online", lastSeen: firebase.database.ServerValue.TIMESTAMP });
+    await statusRef.set({ state: "online", lastSeen: firebase.database.ServerValue.TIMESTAMP });
 
     statusRef.onDisconnect().set({ state: "offline", lastSeen: firebase.database.ServerValue.TIMESTAMP });
 
@@ -243,14 +406,22 @@ async function setupHeartbeat() {
     });
 }
 
-firebase.auth().onAuthStateChanged((user) => {
+firebase.auth().onAuthStateChanged(user => {
     if (user) {
-        console.log("Auth ready:", user.email);
-        loadFriendRequests();
-        loadFriends();
-        setupHeartbeat(); 
-    } else {
-        console.warn("No user signed in yet");
+        const userRef = db.ref("users/" + user.uid + "/public/username");
+        userRef.once("value").then(snapshot => {
+            const username = snapshot.val();
+            if (username) {
+                sessionStorage.setItem("username", username);
+                console.log("Username stored in sessionStorage:", username);
+
+                loadFriendRequests();
+                loadFriends();
+                setupHeartbeat();
+            } else {
+                console.error("Username not found in database.");
+            }
+        });
     }
 });
 
@@ -325,17 +496,23 @@ async function sendMessage() {
     let message = messageInputBox.value.trim();
     if (!message) return;
 
+    // Reject malicious message content
+    if (containsDangerousTags(message)) {
+        alert("Invalid Input: Message contains potentially dangerous content.");
+        return;
+    }
+
     // Apply formatting
     switch (currentFormat) {
         case "bold":
-            message = `<b>${message}</b>`;
+            message = `<b>${escapeHTML(message)}</b>`;
             break;
         case "italic":
-            message = `<i>${message}</i>`;
+            message = `<i>${escapeHTML(message)}</i>`;
             break;
         case "normal":
         default:
-            // no change
+            message = escapeHTML(message);
             break;
     }
 
@@ -403,7 +580,19 @@ function displayMessage(username, message) {
     }
 
     const isImageTag = message.includes("<img");
-    messageElement.innerHTML = isImageTag ? `${message}` : `${username}: ${message}`;
+    if (isImageTag) {
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = message;
+    
+        const img = tempDiv.querySelector("img");
+        if (img && img.src.startsWith("https://")) {
+            messageElement.appendChild(img);
+        } else {
+            messageElement.textContent = "[Blocked potentially unsafe content]";
+        }   
+    } else {
+        messageElement.textContent = escapeHTML(username) + ": " + escapeHTML(message);
+    }    
 
     if (message.includes("https://") && (message.includes(".png") || message.includes(".jpg") || message.includes(".jpeg") || message.includes(".gif"))) {
         const img = document.createElement("img");
@@ -469,6 +658,7 @@ document.addEventListener("DOMContentLoaded", () => {
 const attachBtn = document.querySelector(".attach-btn");
 const fileInput = document.getElementById("file-input");
 
+
 attachBtn.addEventListener("click", () => {
     fileInput.click();
 });
@@ -485,15 +675,27 @@ fileInput.addEventListener("change", async (event) => {
         return;
     }
 
+    if (containsDangerousTags(file.name)) {
+        alert("Invalid file name: potentially dangerous content detected.");
+        return;
+    }
+
     if (file.size > maxSizeMB * 1024 * 1024) {
         alert("File is too large. Max 10MB allowed.");
         return;
     }
 
-    const username = await getCurrentUsername();
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        alert("User not authenticated.");
+        return;
+    }
+
+    const username = sessionStorage.getItem("username"); 
+    const uid = user.uid;
     const timestamp = Date.now();
     const fileName = `${timestamp}_${file.name}`;
-    const storageRef = storage.ref().child(`uploads/${username}/${fileName}`);
+    const storageRef = storage.ref().child(`uploads/${uid}/${fileName}`);
 
     try {
         console.log("Uploading file:", file.name);
@@ -503,11 +705,13 @@ fileInput.addEventListener("change", async (event) => {
         const downloadURL = await snapshot.ref.getDownloadURL();
         console.log("File URL:", downloadURL);
 
+        const sanitizedName = file.name.replace(/[<>&"'`]/g, "");
+
         let message;
         if (file.type.startsWith("image/")) {
-            message = `<img src="${downloadURL}" alt="${file.name}" style="max-width: 200px; border-radius: 10px;" />`;
+            message = `<img src="${downloadURL}" alt="${sanitizedName}" style="max-width: 200px; border-radius: 10px;" />`;
         } else {
-            message = `<a href="${downloadURL}" target="_blank">${file.name}</a>`;
+            message = `<a href="${downloadURL}" target="_blank">${sanitizedName}</a>`;
         }
 
         const refToUse = privateChatRef || chatRef;
@@ -524,7 +728,6 @@ fileInput.addEventListener("change", async (event) => {
     }
 });
 
-// Emoji Picker
 const emojiBtn = document.getElementById("emoji-btn");
 const emojiPicker = document.getElementById("emoji-picker");
 const messageInputBox = document.getElementById("message-input");
@@ -538,12 +741,16 @@ formatButtons.forEach(btn => {
 });
 
 // Link button logic
+
 const linkBtn = document.querySelector(".link-btn");
-if (linkBtn) {
+
+if (linkBtn && messageInputBox) {
     linkBtn.addEventListener("click", () => {
         const url = prompt("Enter URL (https://...)");
-        if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
-            const linkHTML = `<a href="${url}" target="_blank">${url}</a>`;
+
+        if (url && isValidURL(url)) {
+            const safeURL = escapeHTML(url);
+            const linkHTML = `<a href="${safeURL}" target="_blank" rel="noopener noreferrer">${safeURL}</a>`;
             messageInputBox.value += linkHTML;
         } else {
             alert("Invalid URL");
@@ -569,19 +776,27 @@ document.addEventListener("DOMContentLoaded", () => {
         logoutBtn.addEventListener("click", async () => {
             const username = await getCurrentUsername();
             const statusRef = db.ref(`status/${username}`);
-
-            if (disconnectMsgRef) {
-                await disconnectMsgRef.onDisconnect().cancel();
+        
+            try {
+                if (disconnectMsgRef) {
+                    await disconnectMsgRef.onDisconnect().cancel();
+                }
+        
+                await statusRef.set({
+                    state: "offline",
+                    lastSeen: firebase.database.ServerValue.TIMESTAMP
+                });
+            } catch (error) {
+                console.warn("Failed to update status:", error.message);
+                // Still proceed with logout even if status fails
             }
-
-            await statusRef.set({ state: "offline", lastSeen: firebase.database.ServerValue.TIMESTAMP });
-
+        
             firebase.auth().signOut().then(() => {
                 console.log("User logged out.");
                 window.location.href = "index.html";
             }).catch((error) => {
                 console.error("Logout failed:", error);
             });
-        });
+        });        
     }
 });
