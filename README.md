@@ -27,61 +27,51 @@ SecureChatBeta is a modern-version of the Websocket Project. It is a real-time w
   - Persistent chat history
 - **Logout Functionality**
   - Clean session exit and redirection
- 
+
 ---
-## **Prerequisites**  
-Before running SecureChat, ensure you have the following:
-- A web browser (Chrome/Firefox recommended)
-- Access to project Firebase Console
-- **Node.js** and **npm** are installed
-- **Emoji-picker-element** is installed and in the /public/js folder of the project directory.
 
-### Firebase Configuration
+## Hosted Application
+- [smooth-state-453618-p4.web.app](https://smooth-state-453618-p4.web.app)
+- [smooth-state-453618-p4.firebaseapp.com](https://smooth-state-453618-p4.firebaseapp.com)
 
-This project uses the following Firebase services:
-- **Authentication** for user login/register
-- **Realtime Database** for storing:
-  - Messages
-  - Friend requests
-  - User profiles
-- **HeartBeart** functionality
-  
-All Firebase credentials are already embedded in the `auth.js` and `script.js` files.
+---
 
-### Step 1: Clone the Repository
-Clone the repository to your local machine:
-```bash
-https://github.com/irenanguyenn/SecureChatBeta.git
-```
+## Security Implementation
+SecureChatBeta has been designed with a strong emphasis on web security. Below are the core protections in place:
 
-### Step 2: Install Dependencies
-Navigate to the project directory and install the required dependencies:
-```bash
-cd SecureChatBeta-main
-npm install
-```
+### Input Validation & Sanitization
+- **`sanitizeInput()` / `escapeHTML()`**: Neutralize any potentially harmful characters before rendering or storing user input.
+- **`containsDangerousTags()`**: Prevents input of dangerous HTML or JavaScript code.
+- **`isValidUsername()` / `isValidEmail()` / `isStrongPassword()`**: Enforce strong rules for username, email, and password formats.
 
-### Step 3: Start the Development Server
-Open a terminal with the directory leading to the project public folder and run:
-```bash
-firebase serve --host 0.0.0.0
-```
-Also can try
-```
-npm install -g http-server
-http-server local
-```
+### DOM-Based XSS Protection
+- Only sanitized content is inserted into the DOM.
+- Messages are HTML-encoded before being stored in Firebase, and decoded before rendering on the client.
+- Strict regex patterns ensure only safe, formatted anchor tags are rendered.
 
-### Step 4: Access the Application
-Open your web browser and navigate to `http://[yourIPaddress]:5000` to access the SecureChat application.
- - To find the public IP address, run:
-``` ipconfig ```
+### Link Security
+- **`isValidURL()`**: Ensures only `http`/`https` URLs are processed.
+- **`isWhitelistedDomain()`**: Allows links only to trusted domains.
+- **`isBlacklistedDomain()`**: Blocks known malicious or unsafe domains.
+- **`linkify()`**: Converts safe plain URLs into clickable links with:
+  - `target="_blank"`
+  - `rel="noopener noreferrer"` to prevent tabnabbing
 
-#### **IMPORTANT:**  
-- Using different devices to communicate, they must be on the same internet connection, meaning same public IP address. 
-- **CSUF Wi-Fi is NOT recommended** due to dynamic public IP assignment, which causes connection failures.  
+### Safe Data Storage
+- User messages are HTML-encoded before saving to Firebase.
+- Decoded and verified before rendering.
 
-Now, your system should be up and running. 
+### Additional Measures
+- Modified firebase.json to include: 
+  - Content Security Policy (CSP) to restrict what can be uploaded and where. 
+  - Clickjacking prevention via X-Frame-Options: DENY
+  - MIME Sniffing preventing via X-Content-Type-Options
+- File upload validation by type and size
+- Emoji picker input sanitation
+- Rate-limiting to prevent spam messaging
+- Authentication and database access governed by strict Firebase security rules
+
+---
 
 ## Using SecureChat
 
@@ -117,24 +107,19 @@ Now, your system should be up and running.
    * Logout.
    * Close tab.
 
-## Common Problems & Potential Fixes
-1. Server not starting
-* Ensure all packages are downloaded
-
 ## Future Improvements
 * Fully available via cloud
 * More options for users such as
       - More navigation options: Settings, Change Password, Dashboard, Inbox.
 * Better Rate Limiting Mechanism.
 * Implement higher security measures.
-* Allow users to have an inbox of messages while they are away.
-
 
 ## Authors
 Developed by Lillian Thacker and Irena Nguyen as part of a Web Security Project.
 
-AI tools were used to help understand concepts and format documentation.
-
+## References
+- AI tools were used to help understand concepts and format documentation.
+- Zscaler. (2023). *A Look at the Top Websites Blocked by Zscaler*. Retrieved from https://www.zscaler.com/blogs/security-research/look-top-websites-blocked
 
 ### License
 This project is for educational purposes only.
