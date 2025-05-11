@@ -63,7 +63,6 @@ SecureChatBeta has been designed with a strong emphasis on web security. Below a
 
 ### Additional Measures
 - Modified firebase.json to include: 
-  - Content Security Policy (CSP) to restrict what can be uploaded and where. 
   - Clickjacking prevention via X-Frame-Options: DENY
   - MIME Sniffing preventing via X-Content-Type-Options
 - File upload validation by type and size
@@ -109,6 +108,7 @@ SecureChatBeta has been designed with a strong emphasis on web security. Below a
 
 ## Future Improvements
 * Fully available via cloud
+* Implement Content Security Policy (CSP) to restrict what can be uploaded and where. 
 * More options for users such as
       - More navigation options: Settings, Change Password, Dashboard, Inbox.
 * Better Rate Limiting Mechanism.
