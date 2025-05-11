@@ -14,6 +14,44 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 
+// Sanitize user input to prevent XSS
+function sanitizeInput(input) {
+    const div = document.createElement("div");
+    div.textContent = input;
+    return div.innerHTML;
+}
+
+// Escape output before rendering it into the DOM
+function escapeHTML(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// Validate email format
+function isValidEmail(email) {
+    const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return regex.test(email);
+}
+
+// Validate username format
+function isValidUsername(username) {
+    const regex = /^(?=.*[a-zA-Z])[a-zA-Z0-9]{3,10}$/;  
+    const lowerUsername = username.toLowerCase();
+    return regex.test(username) && lowerUsername !== "admin";
+}
+
+function isStrongPassword(password) {
+    const regex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+    return regex.test(password);
+}
+
+function containsDangerousTags(input) {
+    const sanitized = input.toLowerCase().replace(/\s+/g, "");
+    const pattern = /<(script|img|iframe|object|embed|link|style|svg|base|meta|form|input|button)|on\w+=|javascript:|data:text\/html|<\s*\/\s*script>/gi;
+    return pattern.test(sanitized);
+}
+
 // Toggle between Login and Register
 document.addEventListener("DOMContentLoaded", () => {
     const showRegisterLink = document.getElementById("show-register");
@@ -46,62 +84,61 @@ auth.onAuthStateChanged((user) => {
 
 // Registration Form
 const registerForm = document.querySelector('#register-form');
+
 if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-
-        const email = registerForm['register-email'].value;
-        const username = registerForm['register-username'].value.trim().toLowerCase();
-        const password = registerForm['register-password'].value;
-        const confirmPassword = registerForm['confirm-password'].value;
+      
+        const email = sanitizeInput(registerForm['register-email'].value.trim());
+        const username = sanitizeInput(registerForm['register-username'].value.trim().toLowerCase());
+        const password = registerForm['register-password'].value.trim();
+        const confirmPassword = registerForm['confirm-password'].value.trim();
+      
+        if (!isValidUsername(username)) {
+          alert("Username must be 3–10 characters long, use only letters/numbers, and not be 'admin'.");
+          return;
+        }
         
-        if (password.length < 8) {
-            alert("You need a minimum of 8 characters long");
+        if (containsDangerousTags(username)) {
+            alert("Invalid username format.");
             return;
         }
         
+        if (!isStrongPassword(password)) {
+          alert("Password must be at least 8 characters long, include a number and an uppercase letter.");
+          return;
+        }
+      
         if (confirmPassword !== password) {
-            alert("Passwords do not match!");
-            return;
+          alert("Passwords do not match.");
+          return;
         }
-        
-        if (confirmPassword !== password) {
-            alert("Passwords do not match!");
-            return;
+      
+        const usernameTaken = await checkIfUsernameExists(username);
+        if (usernameTaken) {
+          alert("Username already taken. Choose a different one.");
+          return;
         }
-
-        const usernameExists = await checkIfUsernameExists(username);
-        if (usernameExists) {
-            alert("Username already taken. Please choose a different one.");
-            return;
+      
+        try {
+          const cred = await auth.createUserWithEmailAndPassword(email, password);
+          const userRef = db.ref("users/" + cred.user.uid);
+          const usernameRef = db.ref("usernames/" + username);
+      
+          await usernameRef.set(true);
+          await userRef.child("public").set({ username });
+          await userRef.child("private").set({ email });
+      
+          sessionStorage.setItem("loggedInUsername", escapeHTML(username));
+          console.log("Registered and stored username:", username);
+      
+          registerForm.reset();
+          location.href = "/gc.html";
+        } catch (error) {
+          console.error("Registration error:", error.message);
+          alert("Error: " + error.message);
         }
-
-        auth.createUserWithEmailAndPassword(email, password)
-        .then(async (cred) => {
-            const userRef = db.ref('users/' + cred.user.uid);
-        
-            userRef.set({
-                username: username,
-                email: email
-            })
-            .then(() => {
-                console.log("User successfully stored in database.");
-            })
-            .catch((error) => {
-                console.error("Error storing user in database:", error);
-            });
-        
-            console.log("User registered and saved in Firebase:", { uid: cred.user.uid, username, email });
-        
-            sessionStorage.setItem("loggedInUsername", username);
-            console.log("Stored username in sessionStorage (Register):", username);            
-            registerForm.reset();
-            location.href = "/gc.html";
-        })
-        .catch((error) => {
-            alert("Error: " + error.message);
-        });
-    });
+      });
 }
 
 // Login Form
@@ -123,19 +160,24 @@ if (loginForm) {
             return;
         }
     
-        const email = loginForm['login-email'].value;
+        const email = sanitizeInput(loginForm['login-email'].value);
         const password = loginForm['login-password'].value;
-    
+        
+        if (containsDangerousTags(email) || containsDangerousTags(password)) {
+            alert("Invalid login input: potentially dangerous content.");
+            return;
+        }
+        
         auth.signInWithEmailAndPassword(email, password).then(async (cred) => {
             loginAttempts = 0;
             lastFailedAttemptTime = null;
     
-            const userRef = db.ref("users/" + cred.user.uid);
-            const snapshot = await userRef.once("value");
+            const userRef = db.ref("users/" + cred.user.uid + "/public");
+            const snapshot = await userRef.once("value");            
             const userData = snapshot.val();
     
             if (userData && userData.username) {
-                sessionStorage.setItem("loggedInUsername", userData.username);
+                sessionStorage.setItem("loggedInUsername", escapeHTML(userData.username));                
                 console.log("Stored username in sessionStorage:", userData.username);                
             } else {
                 console.error("No username found in database.");
@@ -158,12 +200,21 @@ if (loginForm) {
     });
 }
 
+firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+        console.log("AUTH UID:", user.uid);
+        db.ref("users/" + user.uid).once("value").then(snapshot => {
+            console.log("Fetched user data:", snapshot.val());
+        });
+    }
+});
+
 // Checks if username exists
 async function checkIfUsernameExists(username) {
-    const usersRef = db.ref('users');
-    const snapshot = await usersRef.orderByChild('username').equalTo(username).once('value');
+    const usernameRef = db.ref("usernames/" + username);
+    const snapshot = await usernameRef.get();
     return snapshot.exists();
-}
+  }  
 
 // Logout
 document.addEventListener("DOMContentLoaded", () => {
