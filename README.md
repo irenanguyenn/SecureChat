@@ -1,4 +1,4 @@
-# Secure Chat Beta
+# SecureChat 
 
 ## Overview 
 SecureChatBeta is a modern-version of the Websocket Project. It is a real-time web chat platform with user-friendly design, Firebase integration, and extended functionality. Built for remote teams or individuals needing a lightweight but secure communication tool, SecureChatBeta brings together secure messaging, user authentication, friend management, and responsive UI—all in the browser.
