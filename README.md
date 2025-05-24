@@ -1,7 +1,7 @@
-# Secure Chat Beta
+# SecureChat 
 
 ## Overview 
-SecureChatBeta is a modern-version of the Websocket Project. It is a real-time web chat platform with user-friendly design, Firebase integration, and extended functionality. Built for remote teams or individuals needing a lightweight but secure communication tool, SecureChatBeta brings together secure messaging, user authentication, friend management, and responsive UI—all in the browser.
+SecureChat is a modern-version of the Websocket Project. It is a real-time web chat platform with user-friendly design, Firebase integration, and extended functionality. Built for remote teams or individuals needing a lightweight but secure communication tool, SecureChatBeta brings together secure messaging, user authentication, friend management, and responsive UI—all in the browser.
 
 ## WebSocket Project Features (Old):
 - End-to-End Encrypted Communication via WSS
@@ -11,7 +11,7 @@ SecureChatBeta is a modern-version of the Websocket Project. It is a real-time w
 - Self-Signed SSL Certificates for secure connections
 - Timestamp for each message sent
 
-## Secure Chat Beta Features (New): 
+## SecureChat Features (New): 
 - **User Authentication** (Login/Register with Firebase Auth)
 - **Friend System**
   - Send friend requests
@@ -37,7 +37,7 @@ SecureChatBeta is a modern-version of the Websocket Project. It is a real-time w
 ---
 
 ## Security Implementation
-SecureChatBeta has been designed with a strong emphasis on web security. Below are the core protections in place:
+SecureChat has been designed with a strong emphasis on web security. Below are the core protections in place:
 
 ### Input Validation & Sanitization
 - **`sanitizeInput()` / `escapeHTML()`**: Neutralize any potentially harmful characters before rendering or storing user input.
@@ -63,7 +63,6 @@ SecureChatBeta has been designed with a strong emphasis on web security. Below a
 
 ### Additional Measures
 - Modified firebase.json to include: 
-  - Content Security Policy (CSP) to restrict what can be uploaded and where. 
   - Clickjacking prevention via X-Frame-Options: DENY
   - MIME Sniffing preventing via X-Content-Type-Options
 - File upload validation by type and size
@@ -109,6 +108,7 @@ SecureChatBeta has been designed with a strong emphasis on web security. Below a
 
 ## Future Improvements
 * Fully available via cloud
+* Implement Content Security Policy (CSP) to restrict what can be uploaded and where. 
 * More options for users such as
       - More navigation options: Settings, Change Password, Dashboard, Inbox.
 * Better Rate Limiting Mechanism.
